@@ -18,7 +18,7 @@ import game as gm
 # return all cards to the deck, shuffle it and start again with .new_hand() then 
 
 def main():
-    game1 = gm.Game(3)
+    game1 = gm.Game(8)
     # game1 = gm.Game((("Luke","Human"), ("Bot1", ""), ("Bot2", "")))
     game1.play_game(100)
 

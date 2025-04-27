@@ -93,7 +93,7 @@ class Game:
         for i in range(num_hands):
             for player in self.players:
                 if player.chips == 0 and player.committed > 0:
-                    consts.log(f"⚠️ {player.name} has 0 chips but still has {player.committed} committed!", consts.DEBUG)
+                    consts.log(f"{player.name} has 0 chips but still has {player.committed} committed!", consts.DEBUG)
 
             if len(self.players) <= 1:
                 break;
@@ -130,7 +130,6 @@ class Game:
             for player in self.players:
                 if player.chips <= 0:
                     self.remove_player(player)
-            self.final_check_balances()
         print(f"{i + 1} hands played")
         self.final_check_balances()
 
@@ -140,7 +139,7 @@ class Game:
         expected_total = self.num_players * 1000  # Each player starts with 1000
 
         if total_chips != expected_total:
-            consts.log(f"⚠️ Chip total mismatch! Expected {expected_total}, got {total_chips}", consts.DEBUG)
+            consts.log(f"Chip total mismatch! Expected {expected_total}, got {total_chips}", consts.DEBUG)
             consts.log(f"Chips: {total_chips}, Committed: {sum(player.pot_committed for player in self.players)}, Pot: {self.pot}", consts.DEBUG)
             for player in self.players:
                 consts.log(f"{player.name}: Chips={player.chips}, Committed={player.committed}", consts.DEBUG)
