@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import config
 
 class Poker_Bot:
     """
@@ -18,6 +18,7 @@ class Poker_Bot:
         self.last_action = 0
         self.last_action_amount = 0
         self.position = 0
+        self.vpip = 0.0
         
         # list of dictionaries
         self.opposition_params = {}
@@ -35,6 +36,12 @@ class Poker_Bot:
         self.Zs = []
         self.As = []
 
+        return None
+    
+    def set_weights_biases(self, weights, biases):
+        # set the weights and biases to the given values
+        self.weights = weights
+        self.biases = biases
         return None
 
     def add_opposition(self, player_number, starting_stack): #etc etc add a bunch of data here
@@ -54,7 +61,7 @@ class Poker_Bot:
     
     def update_self(self, hand_strength, stack_size, 
                     amount_committed_this_action, amount_committed_to_pot, 
-                    last_action, last_action_amount, position):
+                    last_action, last_action_amount, position, vpip = None):
         self.hand_strength = hand_strength
         self.stack_size = stack_size
         self.amount_committed_this_action = amount_committed_this_action
@@ -62,6 +69,7 @@ class Poker_Bot:
         self.last_action = last_action
         self.last_action_amount = last_action_amount
         self.position = int(position)
+        self.vpip = vpip
         return None
     
     def update_opposition(self, player_number, stack_size, 
@@ -93,24 +101,25 @@ class Poker_Bot:
         # create weights and bias matrices based on the size of the inputs, 
         # with a number of hidden layers and hidden layer sizes.
         # output is size 4
-
+        num_layers = config.num_neural_layers
+        hidden_layer_size = config.neural_hidden_layer_size
         # for now, just 2 hidden layers with size 15
-        self.weights = [[] for _ in range(3)]
-        self.biases = [[] for _ in range(3)]
-        self.Zs = [[] for _ in range(3)]
-        self.As = [[] for _ in range(3)]
+        self.weights = [[] for _ in range(num_layers)]
+        self.biases = [[] for _ in range(num_layers)]
+        self.Zs = [[] for _ in range(num_layers)]
+        self.As = [[] for _ in range(num_layers)]
 
 
         for i in range(len(self.weights)):
             if i == 0:
-                self.weights[i] = np.random.rand(15, len(self.inputs)) - 0.5
-                self.biases[i] = np.random.rand(15, 1) - 0.5
+                self.weights[i] = np.random.rand(hidden_layer_size, len(self.inputs)) - 0.5
+                self.biases[i] = np.random.rand(hidden_layer_size, 1) - 0.5
             elif i == len(self.weights) - 1:
-                self.weights[i] = np.random.rand(4, 15) - 0.5
+                self.weights[i] = np.random.rand(4, hidden_layer_size) - 0.5
                 self.biases[i] = np.random.rand(4, 1) - 0.5
             else:
-                self.weights[i] = np.random.rand(15, 15) - 0.5
-                self.biases[i] = np.random.rand(15, 1) - 0.5
+                self.weights[i] = np.random.rand(hidden_layer_size, hidden_layer_size) - 0.5
+                self.biases[i] = np.random.rand(hidden_layer_size, 1) - 0.5
 
         return None
 
@@ -121,7 +130,7 @@ class Poker_Bot:
         # adding player inputs
         self.inputs.extend([self.hand_strength, self.stack_size, 
                             self.amount_committed_this_action, self.amount_committed_to_pot, 
-                            self.last_action, self.last_action_amount, self.position])
+                            self.last_action, self.last_action_amount, self.position, self.vpip])
         # adding all opposition values
         for player_data in self.opposition_params.values():
             for value in player_data.values():

@@ -1,5 +1,6 @@
 import deck as dk
 import player as pl
+import player2 as pl2
 import consts
 from enum import Enum
 import numpy as np
@@ -33,7 +34,7 @@ class Board:
             consts.log(all_cards, consts.PLAYER_CHECKS)
 
 class Game:
-    # game has x players, order is important
+    # game has x players
     # game has a deck 'game_deck' which it can shuffle, deal to players etc.
     # players is either an int or a list of names
     def __init__(self, players):
@@ -44,6 +45,7 @@ class Game:
         self.small_blind = 10
         self.big_blind = 20
         self.pot = 0
+        self.hands_played = 0
         # the game has a board
         self.game_board = Board()
         self.count_folded_players = 0
@@ -52,21 +54,22 @@ class Game:
         self.eliminated_players = []
         if isinstance(players, int):
             self.num_players = players
-            self.players = [pl.Neural_AI(f"Player {i + 1}", self.game_board, self) for i in range(players)]
+            self.players = [pl.Neural_AI(f"Player {i + 1}") for i in range(players)]
             for player in self.players:
+                player.add_board(self.game_board)
+                player.add_game(self)
                 player.update_bot(self)
             # self.players = [random.choice([pl.Smart_AI(f"Player {i+1} Smart", self.game_board), pl.Basic_AI(f"Player {i+1} Basic", self.game_board)]) for i in range(players)]
-        elif isinstance(players, tuple):
+        elif isinstance(players, list):
             for player in players:
-                if player[1] == "Human":
-                    if consts.GAMEPLAY_MESSAGES not in consts.VERBOSITY:
-                        consts.VERBOSITY.append(consts.GAMEPLAY_MESSAGES)
-                        consts.VERBOSITY.append(consts.PLAYER_CHECKS)
-                    self.players.append(pl.Human(player[0], self.game_board))
-                else:
-                    self.players.append(random.choice([pl.Smart_AI(player[0], self.game_board), pl.Basic_AI(player[0], self.game_board)]))
+                self.players.append(player)
+                player.add_board(self.game_board)
+                player.add_game(self)
+            for player in self.players:
+                player.update_bot(self)
             self.num_players = len(players)
         else:
+            print(type(players))
             raise ValueError("Game must be initialized with an integer or a list of player names.")
         
         for i in range(len(self.players)):
@@ -84,53 +87,64 @@ class Game:
 
     # Controlling the flow of the game
 
-    def play_game(self, num_hands):
-        """Play the entire sequence of the game"""
-        # MODIFY THIS TO EDIT HOW THE GAME FLOWS
-        
-        # tidy this up
-        i = 0
-        for i in range(num_hands):
-            for player in self.players:
+    def game_flow(self):
+        self.hands_played += 1
+        for player in self.players:
                 if player.chips == 0 and player.committed > 0:
                     consts.log(f"{player.name} has 0 chips but still has {player.committed} committed!", consts.DEBUG)
 
-            if len(self.players) <= 1:
-                break;
-            self.new_hand()
-            self.deal_player_cards()
-            self.print_players()
-            consts.log(f"Dealer: {self.dealer.name}", consts.GAMEPLAY_MESSAGES)
-            consts.log("--------- PRE-FLOP ----------", consts.GAMEPLAY_MESSAGES)
-            self.action_round(self.stage, self.small_blind, self.big_blind)
-
-            if (len(self.players) - 1) > self.count_folded_players:
-                self.deal_hand(self.stage)
-                consts.log("--------- FLOP ----------", consts.GAMEPLAY_MESSAGES)
-                self.print_board()
+                if len(self.players) <= 1:
+                    break;
+                self.new_hand()
+                self.deal_player_cards()
+                self.print_players()
+                consts.log(f"Dealer: {self.dealer.name}", consts.GAMEPLAY_MESSAGES)
+                consts.log("--------- PRE-FLOP ----------", consts.GAMEPLAY_MESSAGES)
                 self.action_round(self.stage, self.small_blind, self.big_blind)
 
                 if (len(self.players) - 1) > self.count_folded_players:
                     self.deal_hand(self.stage)
-                    consts.log("--------- TURN ----------", consts.GAMEPLAY_MESSAGES)
+                    consts.log("--------- FLOP ----------", consts.GAMEPLAY_MESSAGES)
                     self.print_board()
                     self.action_round(self.stage, self.small_blind, self.big_blind)
 
                     if (len(self.players) - 1) > self.count_folded_players:
                         self.deal_hand(self.stage)
-                        consts.log("--------- RIVER ----------", consts.GAMEPLAY_MESSAGES)
+                        consts.log("--------- TURN ----------", consts.GAMEPLAY_MESSAGES)
                         self.print_board()
                         self.action_round(self.stage, self.small_blind, self.big_blind)
 
-            self.rotate_seats()
+                        if (len(self.players) - 1) > self.count_folded_players:
+                            self.deal_hand(self.stage)
+                            consts.log("--------- RIVER ----------", consts.GAMEPLAY_MESSAGES)
+                            self.print_board()
+                            self.action_round(self.stage, self.small_blind, self.big_blind)
 
-            self.print_board()
-            self.evaluate_winner()
-            # need to eliminate players who are out
-            for player in self.players:
-                if player.chips <= 0:
-                    self.remove_player(player)
-        print(f"{i + 1} hands played")
+                self.rotate_seats()
+
+                self.print_board()
+                self.evaluate_winner()
+                # need to eliminate players who are out
+                for player in self.players:
+                    if player.chips <= 0:
+                        self.remove_player(player)
+                
+
+    def play_game(self, num_hands = 0):
+        """Play the entire sequence of the game"""
+        # MODIFY THIS TO EDIT HOW THE GAME FLOWS
+        
+        # tidy this up
+        i = 0
+        # for i in range(num_hands):
+        if num_hands == 0:
+            while len(self.players) > 1:
+                self.game_flow()
+                i += 1
+        else:
+            for i in range(num_hands):
+                self.game_flow()
+        consts.log(f"{i + 1} hands played", consts.TRAINING_MESSAGES)
         self.final_check_balances()
 
     def verify_chip_totals(self):
@@ -205,6 +219,7 @@ class Game:
 
             current_player.last_action = decision
             if decision == consts.CHECK:
+                current_player.last_action = consts.CHECK
                 consts.log(f"{current_player.name} CHECKS", consts.GAMEPLAY_MESSAGES)
             elif decision == consts.FOLD:
                 self.count_folded_players += 1
@@ -252,6 +267,10 @@ class Game:
             consts.log(f"The current pot is: {self.pot} chips.", consts.GAMEPLAY_MESSAGES)
             # self.verify_chip_totals()  # Verify after each action
             current_player = current_player.next
+
+            for player in self.players:
+                consts.log(player.next.name, consts.GAMEPLAY_MESSAGES)
+
         if stage == Game_Stage.PREFLOP:
             self.stage = Game_Stage.FLOP
         elif stage == Game_Stage.FLOP:
@@ -286,17 +305,21 @@ class Game:
 
     def final_check_balances(self):
         sum = 0
+        consts.log("\n", consts.EXTRAS)
+        winner, _ = self.get_winner()
+        consts.log(f"The winner is {winner.name}", consts.EXTRAS)
         for player in self.players:
-            consts.log(f"{player.name} has {player.chips} chips", consts.INFO_MESSAGES)
+            consts.log(f"{player.name} has {player.chips} chips", consts.EXTRAS)
             sum += player.chips
-        consts.log(f"Total chips in play = {sum}", consts.INFO_MESSAGES)
+        consts.log(f"Total chips in play = {sum}", consts.EXTRAS)
         for player in self.eliminated_players:
-            consts.log(f"{player.name} was eliminated", consts.INFO_MESSAGES)
+            consts.log(f"{player.name} was eliminated", consts.EXTRAS)
 
     def rotate_seats(self):
         self.dealer = self.dealer.next
 
     def remove_player(self, player):
+        consts.log(f"{player.name} has been eliminated from the game.", consts.GAMEPLAY_MESSAGES)
         if player.next == player:
             raise ValueError("Can't remove the last player.")
         
@@ -333,6 +356,7 @@ class Game:
         winners = []
         if len(remaining_players) == 1:
             consts.log(f"{remaining_players[0].name} wins the hand!", consts.GAMEPLAY_MESSAGES)
+            remaining_players[0].hands_won += 1
             remaining_players[0].chips += self.pot
             remaining_players[0].committed = 0
             self.pot = 0
@@ -349,6 +373,7 @@ class Game:
             if len(winners) == 1:
                 consts.log(f"{winners[0].name} wins the hand!", consts.GAMEPLAY_MESSAGES)
                 # winners[0].chips += self.pot - winners[0].committed
+                winners[0].hands_won += 1
                 winners[0].committed = 0
                 winners[0].chips += self.pot
                 self.pot = 0
@@ -359,6 +384,7 @@ class Game:
                 split_amount = self.pot // len(winners)
                 remainder = self.pot % len(winners)
                 for player in winners:
+                    player.hands_won += 1
                     player.chips += split_amount
                     # player.chips += split_amount - player.committed  # Subtract their committed amount
                     player.committed = 0  # Reset their committed amount
@@ -373,3 +399,25 @@ class Game:
             sum += player.chips
         avg = sum / len(self.players)
         return avg
+    
+    def get_winner(self):
+        """Return chip_winner, winrate_winner.
+        \nReturns the player with the most chips, and the player with the best win rate. Will return the same player twice if they are the same"""
+        chips_winner = None
+        if len(self.players) == 1:
+            chips_winner = self.players[0]
+        else:
+            max = self.players[0]
+            for player in self.players:
+                if player.chips > max.chips:
+                    max = player
+            chips_winner = max
+        
+        winrate_winner = None
+        all_players = self.players + self.eliminated_players
+        max = all_players[0]
+        for player in all_players:
+            if player.hands_won > max.hands_won:
+                max = player
+        winrate_winner = max
+        return chips_winner, winrate_winner

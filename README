@@ -1,0 +1,12 @@
+This is still a work in progress to be sure
+
+It current has a working game of poker, which can have human or AI players.
+
+The main function is currently set up to train a neural network using a genetic algorithm.
+It generates a number of tables, each with 8 random players on it. These players play a set number of hands, or until there is only 1 player left. 
+
+Fitness is evaluated based on both highest chip count, and winrate %. the best player of either attribute is then carried on to the next generation.
+
+Children are generated with slight variations to weights and biases and the process is repeated a specified number of times.
+
+TODO: Finish this
