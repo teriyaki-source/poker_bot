@@ -7,6 +7,10 @@ import config
 #     to check for hand winrate instead of just win/loss
 # [ ] add vpip and pfr tracking to the players
 
+# TODO make it only track winrate, dont care about best chip stack.
+# TODO bias children generation towards better players ?? 
+# TODO add some random bots into the mix too? for during training
+
 # generate a new game with n players using gm.Game(n), or input a list of names
 # deal cards to each player with .deal_player_cards
 # print which cards each player has with .print_players()
@@ -14,6 +18,7 @@ import config
 
 def main():
 
+    # can probably remove this and just replace the below with the direct config references
     target_winrate = config.target_winrate
     max_repeats = config.max_repeats
     initial_generations = config.initial_generations
@@ -25,9 +30,6 @@ def main():
     test_num_tables = config.test_num_tables
     # set to 0 to play until 1 winner at the table
     test_num_hands = config.test_num_hands
-
-    # TODO add more values here / create a config file
-    # add ways to modify the training parameters - number of hands per generation etc.
 
     i = 0
     chip_trained_winrate = 0
@@ -52,7 +54,7 @@ def main():
     # change this depending on the bot type
     # TODO make this a config variable
     if winrate_trained_winrate > target_winrate:
-        print(f"Winrate Trained bot winrate: {winrate_trained_winrate} is greater than target winrate: {target_winrate}")
+        print(f"Winrate against random bots: {winrate_trained_winrate} is greater than target winrate: {target_winrate}")
         filename = "winrate_trained_bot.txt"
         write_to_file(filename=filename, bot =winrate_trained_bot, winrate=winrate_trained_winrate, bot_type="winrate")
 
@@ -73,7 +75,7 @@ def main():
 
 def write_to_file(filename, bot, winrate, bot_type):
     with open(filename, 'w') as f:
-        f.write(f"Bot type: {bot_type}, Winrate: {winrate}\n")
+        f.write(f"Bot type: {bot_type}, Random winrate: {winrate}, vsTrained winrate: {bot.get_win_pct():.2f}\n")
         f.write("# weights\n")
         for i, layer in enumerate(bot.brain.weights):
             f.write(f"# layer {i}:\n")

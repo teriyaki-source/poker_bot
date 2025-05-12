@@ -236,13 +236,6 @@ class Game:
 
                 amount_to_add = bet_amount - current_player.committed
 
-
-                # if self.stage == Game_Stage.RIVER and current_player.name == "Player 3":
-                #     print(f"\n\n\n\n\ncurrent pot = {self.pot}")
-                #     print(f"amount to add = {amount_to_add}")
-                #     print(f"current player chips = {current_player.chips}")
-
-
                 # First, update the player's state
                 current_player.chips -= amount_to_add
                 current_player.committed += amount_to_add
@@ -266,6 +259,10 @@ class Game:
                 self.pot += amount_to_add
             consts.log(f"The current pot is: {self.pot} chips.", consts.GAMEPLAY_MESSAGES)
             # self.verify_chip_totals()  # Verify after each action
+
+            if self.stage == Game_Stage.PREFLOP and current_player.in_hand == False and current_player.last_action != consts.FOLD:
+                current_player.in_hand = True
+
             current_player = current_player.next
 
             for player in self.players:

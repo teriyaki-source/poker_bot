@@ -35,65 +35,72 @@ def train_player(num_generations=10, mutation_rate=0.05, mutation_strength=0.1, 
     
     tables = [gm.Game(8) for _ in range(config.num_training_tables)]
     winners = []
-    consts.log(f"Generation 1", consts.GENERATION_MESSAGES)
+    consts.log(f"Generation 1 - with all randomised players", consts.GENERATION_MESSAGES)
     for table in tables:
-        table.play_game()
+        table.play_game(config.training_hand_limit)
         chip_winner, winrate_winner = table.get_winner()
         if bot_type == "chip":
             winners.append(chip_winner)
         elif bot_type == "rate":
+            consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
             winners.append(winrate_winner)
         consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
     new_players = generate_children(winners, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
     winners = []
     # evolve 10 times
     # consts.VERBOSITY = [0,1,2]
+    # generations with same size are first generation
     for i in range(num_generations - 2):
         # create new tables with the new players
-        consts.log(f"Generation {i+2}", consts.GENERATION_MESSAGES)
+        consts.log(f"Generation {i+2} - with 25% randomised players", consts.GENERATION_MESSAGES)
         for j in range(0, len(new_players), 8):
             table = gm.Game(8)
             for k,player in enumerate(table.players):
                 player.brain.set_weights_biases(new_players[j+k].brain.weights, new_players[j+k].brain.biases)
-            table.play_game()
+            table.play_game(config.training_hand_limit)
             chip_winner, winrate_winner = table.get_winner()
             if bot_type == "chip":
                 winners.append(chip_winner)
             elif bot_type == "rate":
+                consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
                 winners.append(winrate_winner)
             consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
         new_players = generate_children(winners, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
         winners = []
 
-    consts.log(f"Generation {i+3}", consts.GENERATION_MESSAGES)
-    for j in range(0, len(new_players), 8):
-        table = gm.Game(8)
-        for k,player in enumerate(table.players):
-            player.brain.set_weights_biases(new_players[j+k].brain.weights, new_players[j+k].brain.biases)
-        table.play_game()
-        chip_winner, winrate_winner = table.get_winner()
-        if bot_type == "chip":
-            winners.append(chip_winner)
-        elif bot_type == "rate":
-            winners.append(winrate_winner)
-        consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
-    new_players = generate_children(winners, num_children=1, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
-    winners = []
+    # these generations will be gradually smaller until there are only 8 players
+    # no random children are generated here.
+    # assumes a large number of previous generations to minimise the change of overfitting
+    while len(new_players) > 8:
+        consts.log(f"Generation {i+3} - with no randomised players", consts.GENERATION_MESSAGES)
+        for j in range(0, len(new_players), 8):
+            table = gm.Game(8)
+            for k,player in enumerate(table.players):
+                player.brain.set_weights_biases(new_players[j+k].brain.weights, new_players[j+k].brain.biases)
+            table.play_game(config.training_hand_limit)
+            chip_winner, winrate_winner = table.get_winner()
+            if bot_type == "chip":
+                winners.append(chip_winner)
+            elif bot_type == "rate":
+                consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
+                winners.append(winrate_winner)
+            consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
+        new_players = generate_children(winners, num_children=4, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
+        winners = []
+        i += 1
 
-    # TODO make a way to have this repeat until there are >= 8 and <16 players remaining
-    # i.e. if there are more players there are more players, so there will be more than 8 players after this step
-    # repeat the process, generating less children each time until there are 8 players left and then play a final game
-    # this is a bit of a hack, but it works for now
+    # there should only be 8 players left here.
 
     consts.log(f"Final Table", consts.GENERATION_MESSAGES)
     table = gm.Game(8)
     for i ,player in enumerate(table.players):
         player.brain.set_weights_biases(new_players[i].brain.weights, new_players[i].brain.biases)
-    table.play_game()
+    table.play_game(config.training_hand_limit)
     chip_winner, winrate_winner = table.get_winner()
     if bot_type == "chip":
         return chip_winner
     elif bot_type == "rate":
+        consts.log(f"Best winrate trained bot winrate: {winrate_winner.get_win_pct():.2f} (against other trained bots)", consts.GENERATION_MESSAGES)
         return winrate_winner
     else:
         return None
@@ -139,12 +146,28 @@ def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_ch
         child1.reset()
         child2.reset()
 
-        for _ in range(num_children):
-            children.append(child1)
-            children.append(child2)
+        
+
+        # adding some random players to see if this changes / prevents overfitting
+        # # half of the new players will be random, half will be children
+        # maybe this should be a config variable, or just less random players    
+
+        if num_children == 8:
+            for _ in range(6):
+                children.append(child1)
+                children.append(child2)
+            for _ in range(4):
+                random_player = pl.Neural_AI(f"Random Child{i}")
+                random_player.reset()
+                children.append(random_player)
+        else:
+            for _ in range(num_children):
+                children.append(child1)
+                children.append(child2)
 
     # mutate children
     # what a terrible out of context comment
+    # im an awful parent
     for child in children:
         for i in range(len(child.brain.weights)):
             mutation = np.random.rand(*child.brain.weights[i].shape) < mutation_rate

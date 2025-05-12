@@ -202,6 +202,10 @@ class Neural_AI(Player):
                 self.brain.update_opposition(player_number=self.players[i].name, stack_size=self.players[i].chips, amount_committed_this_action=self.players[i].committed, 
                                              amount_committed_to_pot=self.players[i].pot_committed, last_action=last_action, 
                                              last_action_amount=self.players[i].last_action_amount, position=position, vpip = self.players[i].vpip)
+        # generate empty players if there are less than 8 players
+        for i in range(len(self.players) - 8):
+            self.brain.update_opposition(player_number=f"Empty Player {i}", stack_size=0, amount_committed_this_action=0, 
+                                         amount_committed_to_pot=0, last_action=-1, last_action_amount=0, position=False)
         self.brain.update_game(self.game.stage.value, self.game.pot, self.game.big_blind, self.game.get_average_stack())
         self.brain.generate_inputs()        
         # if self.brain.weights is None:  # or some other check
