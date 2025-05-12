@@ -3,6 +3,7 @@ from itertools import combinations
 import consts
 from treys import Evaluator, Card as TreysCard
 import random
+import config
 
 class Basic_AI(player.Player):
     def decision(self, current_bet, min_raise):
@@ -23,7 +24,7 @@ class Basic_AI(player.Player):
             # Player can fold, call, or raise
             # if they have enough to raise
             if self.chips >= amount_to_call + min_raise:
-                raise_amount = current_bet + random.choice([min_raise, min_raise + 20])
+                raise_amount = current_bet + random.choice([min_raise, min_raise + config.big_blind])
                 valid_choices = [(consts.RAISE, min(raise_amount, self.chips)), (consts.CALL, min(self.chips, amount_to_call)), (consts.FOLD, 0)]
             # if they can only call
             else:
@@ -86,7 +87,7 @@ class Smart_AI(player.Player):
 
     def make_raise(self, current_bet, min_raise):
         """Makes a raise based on the current bet and minimum raise"""
-        raise_amount = current_bet + random.choice([min_raise, min_raise + 20])  # Slightly randomize the raise
+        raise_amount = current_bet + random.choice([min_raise, min_raise + config.big_blind])  # Slightly randomize the raise
         if raise_amount <= self.chips:
             self.chips -= raise_amount - self.committed
             self.committed += raise_amount

@@ -3,8 +3,8 @@ import player as pl
 import player2 as pl2
 import consts
 from enum import Enum
-import numpy as np
 import random
+import config
 
 class Game_Stage(Enum):
     PREFLOP = 0
@@ -42,8 +42,8 @@ class Game:
         # np.random.seed(2)
         # the game has a deck
         self.game_deck = dk.Deck()
-        self.small_blind = 10
-        self.big_blind = 20
+        self.small_blind = config.small_blind
+        self.big_blind = config.big_blind
         self.pot = 0
         self.hands_played = 0
         # the game has a board
@@ -150,7 +150,7 @@ class Game:
     def verify_chip_totals(self):
         """Verify that the total chips in play matches the expected total"""
         total_chips = sum(player.chips for player in self.players) + max(sum(player.committed for player in self.players), self.pot)
-        expected_total = self.num_players * 1000  # Each player starts with 1000
+        expected_total = self.num_players * config.starting_chips  # Each player starts with 1000
 
         if total_chips != expected_total:
             consts.log(f"Chip total mismatch! Expected {expected_total}, got {total_chips}", consts.DEBUG)
@@ -417,4 +417,13 @@ class Game:
             if player.hands_won > max.hands_won:
                 max = player
         winrate_winner = max
-        return chips_winner, winrate_winner
+
+        bb_winner = None
+        max = all_players[0]
+        for player in all_players:
+            if player.get_bb_return() > max.get_bb_return():
+                max = player
+        bb_winner = max
+
+        # change back to winrate_winner to revert to original
+        return chips_winner, bb_winner #winrate_winner

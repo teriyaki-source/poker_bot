@@ -5,12 +5,13 @@ import random
 import consts
 import numpy as np
 import math
+import config
 
 class Player:
     # players can have either 0 or 2 cards, given to them by deck
     def __init__(self, name):
         self.name = name
-        self.chips = 1000 # TODO change this to be initialised at input
+        self.chips = config.starting_chips 
         self.committed = 0
         self.pot_committed = 0
 
@@ -43,6 +44,16 @@ class Player:
     def get_win_pct(self):
         winrate = self.hands_won / self.hands_played
         return winrate
+
+    # def get_bb_return(self):
+    #     bb_return = (self.chips - config.starting_chips) / config.big_blind
+    #     return bb_return
+
+    def get_bb_return(self):
+        if self.hands_played == 0:  # Avoid division by zero
+            return 0
+        bb_return = ((self.chips - config.starting_chips) / config.big_blind) * (100 / self.hands_played)
+        return bb_return
 
     def add_game(self, game):
         self.game = game
@@ -174,9 +185,10 @@ class Neural_AI(Player):
     
     def update_bot(self, game):
         self.players = game.players
+        # TODO i think this needs to also include players that are not in the game - if there are <8 players
         for i in range(len(self.players)):
             if self.players[i].name != self.name:
-                self.brain.add_opposition(self.players[i].name, 1000)
+                self.brain.add_opposition(self.players[i].name, config.starting_chips)
 
     def decision(self, current_bet, min_raise):
         self.dealer = self.game.dealer
@@ -286,55 +298,98 @@ class Neural_AI(Player):
         self.last_action_amount = 0
         return (consts.FOLD, 0)
 
+    # def make_raise(self, current_bet, min_raise):
+    #     # TODO ADJUST THIS + UNDERSTAND IT
+    #     """Make a raise smarter based on pot size, hand strength, and bluffing chance."""
+    #     max_raise = self.chips - (current_bet - self.committed)
+    #     pot_size = self.game.pot
+
+    #     hand_strength = self.get_hand_strength()  # 0.0 (terrible) -> 1.0 (the nuts)
+
+    #     # -------- Bluff chance --------
+    #     # 10% chance to bluff if hand is weak (< 0.4)
+    #     bluff = False
+    #     if hand_strength < 0.3:
+    #         if np.random.random() < 0.05:  # 10% bluff chance
+    #             bluff = True
+
+    #     # -------- Base raise calculation --------
+    #     if bluff:
+    #         # Act like we have a stronger hand
+    #         base_multiplier = np.random.uniform(0.8, 1.5)  # Overbet the pot sometimes
+    #     else:
+    #         base_multiplier = 0.25 + hand_strength  # Normal raise logic
+
+    #     target_raise = pot_size * base_multiplier
+
+    #     # -------- Add some randomness --------
+    #     random_noise = np.random.uniform(-0.2, 0.2) * pot_size
+    #     target_raise += random_noise
+
+    #     # Clamp to legal values
+    #     target_raise = max(min_raise, int(target_raise))
+    #     total_bet = current_bet + target_raise
+
+    #     # Cap by available chips
+    #     if total_bet >= self.chips:
+    #         return self.make_all_in()
+        
+    #     amount_to_put_in = total_bet - self.committed
+
+    #     total_bet = math.ceil(total_bet/5) * 5
+
+    #     # Update player state
+    #     # self.chips -= amount_to_put_in
+    #     # self.committed += amount_to_put_in
+    #     # self.pot_committed += amount_to_put_in
+    #     # self.last_action = consts.RAISE
+    #     # self.last_action_amount = total_bet
+
+    #     # returns the total new bet - including the raise and amount already committed this action
+    #     # print(amount_to_put_in, total_bet)
+    #     return (consts.RAISE, total_bet)
+    
     def make_raise(self, current_bet, min_raise):
-        """Make a raise smarter based on pot size, hand strength, and bluffing chance."""
+        """Make a raise with more conservative and realistic logic."""
         max_raise = self.chips - (current_bet - self.committed)
         pot_size = self.game.pot
+        bb = self.game.big_blind
 
-        hand_strength = self.get_hand_strength()  # 0.0 (terrible) -> 1.0 (the nuts)
+        hand_strength = self.get_hand_strength()  # 0.0 to 1.0
 
-        # -------- Bluff chance --------
-        # 10% chance to bluff if hand is weak (< 0.4)
+        # -------- Bluff logic (reduced impact) --------
         bluff = False
-        if hand_strength < 0.4:
-            if np.random.random() < 0.1:  # 10% bluff chance
+        if hand_strength < 0.2:  # Only bluff with very weak hands
+            if np.random.random() < 0.02:  # 2% bluff chance
                 bluff = True
 
-        # -------- Base raise calculation --------
+        # -------- Base raise sizing --------
         if bluff:
-            # Act like we have a stronger hand
-            base_multiplier = np.random.uniform(1.2, 2.0)  # Overbet the pot sometimes
+            # Semi-bluff range: small raise
+            base_raise = np.random.uniform(1.5, 2.5) * bb
         else:
-            base_multiplier = 0.5 + hand_strength  # Normal raise logic
+            # Conservative raise: depends on hand strength
+            if hand_strength < 0.4:
+                base_raise = np.random.uniform(2, 3) * bb  # Just above min-raise
+            elif hand_strength < 0.7:
+                base_raise = np.random.uniform(3, 4) * bb
+            else:
+                base_raise = np.random.uniform(4, 6) * bb  # Premium hand
 
-        target_raise = pot_size * base_multiplier
-
-        # -------- Add some randomness --------
-        random_noise = np.random.uniform(-0.2, 0.2) * pot_size
-        target_raise += random_noise
+        # Add small randomness
+        base_raise += np.random.uniform(-0.5, 0.5) * bb
 
         # Clamp to legal values
-        target_raise = max(min_raise, int(target_raise))
+        target_raise = max(min_raise, int(base_raise))
         total_bet = current_bet + target_raise
 
         # Cap by available chips
         if total_bet >= self.chips:
             return self.make_all_in()
-        
-        amount_to_put_in = total_bet - self.committed
 
-        total_bet = math.ceil(total_bet/5) * 5
-
-        # Update player state
-        # self.chips -= amount_to_put_in
-        # self.committed += amount_to_put_in
-        # self.pot_committed += amount_to_put_in
-        # self.last_action = consts.RAISE
-        # self.last_action_amount = total_bet
-
-        # returns the total new bet - including the raise and amount already committed this action
-        # print(amount_to_put_in, total_bet)
+        total_bet = math.ceil(total_bet / 5) * 5
         return (consts.RAISE, total_bet)
+
 
 
     

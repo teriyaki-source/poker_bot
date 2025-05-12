@@ -27,7 +27,7 @@ class Poker_Bot:
         self.game_stage = 0
         self.pot_size = 0
         self.average_active_stack = 0
-        self.big_blind = 0
+        self.big_blind = config.big_blind
 
         # inputs, weights + biases
         self.inputs = []
@@ -43,11 +43,13 @@ class Poker_Bot:
         self.weights = weights
         self.biases = biases
         return None
+    
 
+    # these all need to be normalised to be between 0 and 1
     def add_opposition(self, player_number, starting_stack): #etc etc add a bunch of data here
         # add other parameters here and to update_opposition to 'improve' model
         self.opposition_params[player_number] = {
-            "stack_size": starting_stack,
+            "stack_size": starting_stack / (config.players_per_table * config.starting_chips),
             "position" : 0,
             "amounted_committed_to_pot" : 0,
             "amount_commited_this_action"  : 0,
@@ -59,17 +61,18 @@ class Poker_Bot:
         
         return None
     
+
     def update_self(self, hand_strength, stack_size, 
                     amount_committed_this_action, amount_committed_to_pot, 
                     last_action, last_action_amount, position, vpip = None):
-        self.hand_strength = hand_strength
-        self.stack_size = stack_size
-        self.amount_committed_this_action = amount_committed_this_action
-        self.amount_committed_to_pot = amount_committed_to_pot
-        self.last_action = last_action
-        self.last_action_amount = last_action_amount
-        self.position = int(position)
-        self.vpip = vpip
+        self.hand_strength = hand_strength      # already normalised
+        self.stack_size = stack_size / (config.players_per_table * config.starting_chips)
+        self.amount_committed_this_action = amount_committed_this_action / (config.players_per_table * config.starting_chips)
+        self.amount_committed_to_pot = amount_committed_to_pot / (config.players_per_table * config.starting_chips)
+        self.last_action = last_action / 4          # 4 total actions    
+        self.last_action_amount = last_action_amount / (config.players_per_table * config.starting_chips)
+        self.position = int(position)           # boolean
+        self.vpip = vpip                        # already normalised
         return None
     
     def update_opposition(self, player_number, stack_size, 
@@ -78,12 +81,12 @@ class Poker_Bot:
                           ):
         temp = self.opposition_params[player_number]
         
-        temp["stack_size"] = stack_size
+        temp["stack_size"] = stack_size / (config.players_per_table * config.starting_chips)
         temp["position"] = int(position)
-        temp["amount_committed_to_pot"] = amount_committed_to_pot
-        temp["amount_committed_this_action"] = amount_committed_this_action
-        temp["last_action"] = last_action
-        temp["last_action_amount"] = last_action_amount
+        temp["amount_committed_to_pot"] = amount_committed_to_pot / (config.players_per_table * config.starting_chips)
+        temp["amount_committed_this_action"] = amount_committed_this_action / (config.players_per_table * config.starting_chips)
+        temp["last_action"] = last_action / 4          # 4 total actions
+        temp["last_action_amount"] = last_action_amount / (config.players_per_table * config.starting_chips)
         if vpip is not None:
             temp["VPIP %"] = vpip
         if pfr is not None:
@@ -92,9 +95,9 @@ class Poker_Bot:
     
     def update_game(self, game_stage, pot_size, big_blind, average_active_stack):
         self.game_stage = game_stage
-        self.pot_size = pot_size
-        self.average_active_stack = average_active_stack
-        self.big_blind = big_blind
+        self.pot_size = pot_size / (config.players_per_table * config.starting_chips)
+        self.average_active_stack = average_active_stack / (config.players_per_table * config.starting_chips)
+        self.big_blind = big_blind / (config.players_per_table * config.starting_chips)
         return None
     
     def generate_weights(self):

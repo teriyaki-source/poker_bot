@@ -9,42 +9,44 @@ def test_player(player, num_tables=10, num_hands=0, bot_type = "chip"):
     # time to test if the winner is actually the best player
     # consts.VERBOSITY = [5]
     test_winners = []
-    test_tables = [gm.Game(8) for _ in range(num_tables)]
+    test_tables = [gm.Game(config.players_per_table) for _ in range(num_tables)]
     for table in test_tables:
         table.players[0].brain.set_weights_biases(player.brain.weights, player.brain.biases)
         table.play_game(num_hands)
-        chip_winner, winrate_winner = table.get_winner()
+        chip_winner, bb_winner = table.get_winner()
         if bot_type == "chip":
             test_winners.append(chip_winner)
         elif bot_type == "rate":
-            test_winners.append(winrate_winner)
+            test_winners.append(bb_winner)
         # test_winners.append(table.get_winner())
 
     # TODO: Update this. its not quite right
     trained_bot_wins = sum(1 for player in test_winners if player.name == "Player 1")
-    consts.log(f"{bot_type} Trained bot wins: {trained_bot_wins} out of {num_tables} tables", consts.GENERATION_MESSAGES)
+    # consts.log(f"{bot_type} Trained bot wins: {trained_bot_wins} out of {num_tables} tables", consts.GENERATION_MESSAGES)
+    consts.log(f"{bot_type} Trained Big Blind Return bot had the best returns in {trained_bot_wins} out of {num_tables} tables", consts.GENERATION_MESSAGES)
+    return bb_winner.get_bb_return(), trained_bot_wins / num_tables
     return trained_bot_wins / num_tables
 
 def train_player(num_generations=10, mutation_rate=0.05, mutation_strength=0.1, bot_type = "rate"):
     #TODO 
-    # there are n number of tables, each with 8 players
+    # there are n number of tables, each with m players
     # each table plays until there is a winner
     # the winners of each table are then used to generate new players
     # the new players are then used to create new tables
     # this is repeated x times to improve the player model
     
-    tables = [gm.Game(8) for _ in range(config.num_training_tables)]
+    tables = [gm.Game(config.players_per_table) for _ in range(config.num_training_tables)]
     winners = []
     consts.log(f"Generation 1 - with all randomised players", consts.GENERATION_MESSAGES)
     for table in tables:
         table.play_game(config.training_hand_limit)
-        chip_winner, winrate_winner = table.get_winner()
+        chip_winner, bb_winner = table.get_winner()
         if bot_type == "chip":
             winners.append(chip_winner)
         elif bot_type == "rate":
-            consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
-            winners.append(winrate_winner)
-        consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
+            consts.log(f"Winrate trained bot Big Blind Return / 100 Hands: {bb_winner.get_bb_return():.2f}", consts.TRAINING_MESSAGES)
+            winners.append(bb_winner)
+        consts.log(f"Winner: {(bb_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
     new_players = generate_children(winners, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
     winners = []
     # evolve 10 times
@@ -53,60 +55,60 @@ def train_player(num_generations=10, mutation_rate=0.05, mutation_strength=0.1, 
     for i in range(num_generations - 2):
         # create new tables with the new players
         consts.log(f"Generation {i+2} - with 25% randomised players", consts.GENERATION_MESSAGES)
-        for j in range(0, len(new_players), 8):
-            table = gm.Game(8)
+        for j in range(0, len(new_players), config.players_per_table):
+            table = gm.Game(config.players_per_table)
             for k,player in enumerate(table.players):
                 player.brain.set_weights_biases(new_players[j+k].brain.weights, new_players[j+k].brain.biases)
             table.play_game(config.training_hand_limit)
-            chip_winner, winrate_winner = table.get_winner()
+            chip_winner, bb_winner = table.get_winner()
             if bot_type == "chip":
                 winners.append(chip_winner)
             elif bot_type == "rate":
-                consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
-                winners.append(winrate_winner)
-            consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
+                consts.log(f"Winrate trained bot Big Blind Return / 100 Hands: {bb_winner.get_bb_return():.2f}", consts.TRAINING_MESSAGES)
+                winners.append(bb_winner)
+            consts.log(f"Winner: {(bb_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
         new_players = generate_children(winners, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
         winners = []
 
-    # these generations will be gradually smaller until there are only 8 players
+    # these generations will be gradually smaller until there are only config.players_per_table players
     # no random children are generated here.
     # assumes a large number of previous generations to minimise the change of overfitting
-    while len(new_players) > 8:
+    while len(new_players) > config.players_per_table:
         consts.log(f"Generation {i+3} - with no randomised players", consts.GENERATION_MESSAGES)
-        for j in range(0, len(new_players), 8):
-            table = gm.Game(8)
+        for j in range(0, len(new_players), config.players_per_table):
+            table = gm.Game(config.players_per_table)
             for k,player in enumerate(table.players):
                 player.brain.set_weights_biases(new_players[j+k].brain.weights, new_players[j+k].brain.biases)
             table.play_game(config.training_hand_limit)
-            chip_winner, winrate_winner = table.get_winner()
+            chip_winner, bb_winner = table.get_winner()
             if bot_type == "chip":
                 winners.append(chip_winner)
             elif bot_type == "rate":
-                consts.log(f"Winrate trained bot winrate: {winrate_winner.get_win_pct():.2f}", consts.TRAINING_MESSAGES)
-                winners.append(winrate_winner)
-            consts.log(f"Winner: {(winrate_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
-        new_players = generate_children(winners, num_children=4, mutation_rate=mutation_rate, mutation_strength=mutation_strength)
+                consts.log(f"Winrate trained bot Big Blind Return / 100 Hands: {bb_winner.get_bb_return():.2f}", consts.TRAINING_MESSAGES)
+                winners.append(bb_winner)
+            consts.log(f"Winner: {(bb_winner.name if bot_type == "rate" else chip_winner.name)} of type {bot_type}.", consts.TRAINING_MESSAGES)
+        new_players = generate_children(winners, num_children=int(config.players_per_table/2), mutation_rate=mutation_rate, mutation_strength=mutation_strength)
         winners = []
         i += 1
 
-    # there should only be 8 players left here.
+    # there should only be config.players_per_table players left here.
 
     consts.log(f"Final Table", consts.GENERATION_MESSAGES)
-    table = gm.Game(8)
+    table = gm.Game(config.players_per_table)
     for i ,player in enumerate(table.players):
         player.brain.set_weights_biases(new_players[i].brain.weights, new_players[i].brain.biases)
     table.play_game(config.training_hand_limit)
-    chip_winner, winrate_winner = table.get_winner()
+    chip_winner, bb_winner = table.get_winner()
     if bot_type == "chip":
         return chip_winner
     elif bot_type == "rate":
-        consts.log(f"Best winrate trained bot winrate: {winrate_winner.get_win_pct():.2f} (against other trained bots)", consts.GENERATION_MESSAGES)
-        return winrate_winner
+        consts.log(f"Best BB Return / 100 hands for trained bot: {bb_winner.get_bb_return():.2f} (against other trained bots)", consts.GENERATION_MESSAGES)
+        return bb_winner
     else:
         return None
 
-def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_children=8):
-    """Takes a list of players and generates 8 children per player with a crossover of their genes"""
+def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_children=config.players_per_table):
+    """Takes a list of players and generates config.players_per_table children per player with a crossover of their genes"""
     # TODO there is an issue with this - its combining chip and rate players together which isnt necessarily right
     # change this to only combine players of the same type / adjust the usage above to only train one type of player
     
@@ -152,11 +154,14 @@ def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_ch
         # # half of the new players will be random, half will be children
         # maybe this should be a config variable, or just less random players    
 
-        if num_children == 8:
-            for _ in range(6):
+        if num_children == config.players_per_table:
+            # m, n. 2*m + n = 2 * players per table
+            m = int(0.75 * config.players_per_table)
+            n = 2 * config.players_per_table - 2 * m
+            for _ in range(m):                      
                 children.append(child1)
                 children.append(child2)
-            for _ in range(4):
+            for _ in range(n):
                 random_player = pl.Neural_AI(f"Random Child{i}")
                 random_player.reset()
                 children.append(random_player)
@@ -179,7 +184,7 @@ def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_ch
             child.brain.biases[i] += mutation * noise
     
     np.random.shuffle(children)
-    for i in range(0, len(children), 8):
+    for i in range(0, len(children), config.players_per_table):
         for j in range(num_children):
             children[i+j].name = f"Player {j+1}"
 

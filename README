@@ -1,12 +1,23 @@
 This is still a work in progress to be sure
 
-It current has a working game of poker, which can have human or AI players.
+It current has a working game of poker, which can have human or AI players (although it is only currently set up to train a bot).
 
-The main function is currently set up to train a neural network using a genetic algorithm.
-It generates a number of tables, each with 8 random players on it. These players play a set number of hands, or until there is only 1 player left. 
+The main function is currently set up to train a neural network using a genetic algorithm, tracking Big Blind return / 100 hands as the fitness metric.
 
-Fitness is evaluated based on both highest chip count, and winrate %. the best player of either attribute is then carried on to the next generation.
+Variables / params can be adjusted in the config.py file
 
-Children are generated with slight variations to weights and biases and the process is repeated a specified number of times.
+Children are generated with slight variations to weights and biases and the process is repeated a specified number of times. During training, randomised bots are also introduced to try and reduce the impact / chance of overfitting. 
+
+Currently the play is still a bit aggressive with bots reporting > 10BB return / 100 hands which is a bit high. Still some balancing to do.
+
+After training, the weights and biases are saved into a .txt file with relevant name to potentially be used later. Loading players has not been implemented. Header information for each file is also still a TODO, so files can be sorted better after doing lots of training.
+
+Goals / TODOs: 
+- This README
+- side pots :(
+- save header information properly and file sorting
+- get a stable bot with realistic fitness
+- adjust main.py to have a bunch of humans playing against the AI, using custom input cards - so it can be used to play an actual game
+
 
 TODO: Finish this
