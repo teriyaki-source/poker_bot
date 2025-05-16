@@ -8,23 +8,28 @@ def test_player(player, num_tables=10, num_hands=0, bot_type = "chip"):
 
     # time to test if the winner is actually the best player
     # consts.VERBOSITY = [5]
+
+    total = 0
     test_winners = []
     test_tables = [gm.Game(config.players_per_table) for _ in range(num_tables)]
     for table in test_tables:
         table.players[0].brain.set_weights_biases(player.brain.weights, player.brain.biases)
         table.play_game(num_hands)
         chip_winner, bb_winner = table.get_winner()
+        total += table.players[0].get_bb_return()
         if bot_type == "chip":
             test_winners.append(chip_winner)
         elif bot_type == "rate":
             test_winners.append(bb_winner)
         # test_winners.append(table.get_winner())
 
+    average_trained_bb_return = total / num_tables
+
     # TODO: Update this. its not quite right
     trained_bot_wins = sum(1 for player in test_winners if player.name == "Player 1")
     # consts.log(f"{bot_type} Trained bot wins: {trained_bot_wins} out of {num_tables} tables", consts.GENERATION_MESSAGES)
-    consts.log(f"{bot_type} Trained Big Blind Return bot had the best returns in {trained_bot_wins} out of {num_tables} tables", consts.GENERATION_MESSAGES)
-    return bb_winner.get_bb_return(), trained_bot_wins / num_tables
+    consts.log(f"Trained Big Blind Return bot had the best returns in {trained_bot_wins} out of {num_tables} tables and average {average_trained_bb_return:.2f}BB / 100 Hands.", consts.GENERATION_MESSAGES)
+    return average_trained_bb_return, trained_bot_wins / num_tables, 
     return trained_bot_wins / num_tables
 
 def train_player(num_generations=10, mutation_rate=0.05, mutation_strength=0.1, bot_type = "rate"):
@@ -54,7 +59,7 @@ def train_player(num_generations=10, mutation_rate=0.05, mutation_strength=0.1, 
     # generations with same size are first generation
     for i in range(num_generations - 2):
         # create new tables with the new players
-        consts.log(f"Generation {i+2} - with 25% randomised players", consts.GENERATION_MESSAGES)
+        consts.log(f"Generation {i+2} - with {config.random_player_pct * 100}% randomised players", consts.GENERATION_MESSAGES)
         for j in range(0, len(new_players), config.players_per_table):
             table = gm.Game(config.players_per_table)
             for k,player in enumerate(table.players):
@@ -156,7 +161,7 @@ def generate_children(players, mutation_rate=0.05, mutation_strength=0.1, num_ch
 
         if num_children == config.players_per_table:
             # m, n. 2*m + n = 2 * players per table
-            m = int(0.75 * config.players_per_table)
+            m = int((1 - config.random_player_pct) * config.players_per_table)
             n = 2 * config.players_per_table - 2 * m
             for _ in range(m):                      
                 children.append(child1)

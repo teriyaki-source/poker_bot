@@ -18,8 +18,8 @@ import config
 
 def main():
     print(f"Starting training with config:")
-    print(f"target_winrate: {config.target_winrate}")
-    print(f"target_bb_return: {config.target_bb_return}")
+    # print(f"target_winrate: {config.target_winrate}")
+    # print(f"target_bb_return: {config.target_bb_return}")
     print(f"max_repeats: {config.max_repeats}")
     print(f"initial_generations: {config.initial_generations}")
     print(f"generation_increment: {config.generation_increment}")
@@ -28,6 +28,7 @@ def main():
     print(f"training_hand_limit: {config.training_hand_limit}")
     print(f"mutation_rate: {config.mutation_rate}")
     print(f"mutation_strength: {config.mutation_strength}")
+    print(f"random_player_pct: {config.random_player_pct}")
     print(f"test_num_tables: {config.test_num_tables}")
     print(f"test_num_hands: {config.test_num_hands}")
     print(f"num_neural_layers: {config.num_neural_layers}")
@@ -50,14 +51,26 @@ def main():
     i = 0
     chip_trained_winrate = 0
     bb_trained_winrate = 0
-    while (chip_trained_winrate <= target_winrate or bb_trained_winrate <= target_winrate) and i < max_repeats:
+
+    trained_bots = {}
+
+    # while (chip_trained_winrate <= target_winrate or bb_trained_winrate <= target_winrate) and i < max_repeats:
+    while i < max_repeats:
         print(f"Epoch {i + 1} of {max_repeats}")
-        
+        # TODO make this store the bot from each epoch and then compare them / get the best one
         bb_trained_bot = evolve.train_player(num_generations=initial_generations + i * generation_increment, 
                                                                     mutation_rate=mutation_rate, mutation_strength=mutation_strength, bot_type = "rate")
         
         
         bb_return, bb_trained_winrate = evolve.test_player(bb_trained_bot, num_tables=test_num_tables, num_hands=test_num_hands, bot_type="rate")
+        
+        trained_bots[i] = {
+            "bot" : bb_trained_bot,
+            "epoch" : i + 1,
+            "bb_return" : bb_return,
+            "bb_trained_winrate" : bb_trained_winrate
+        }
+
         print(f"Winrate Trained bot winrate: {bb_trained_winrate:.2f}")
 
         # TODO make this a config variable
@@ -71,11 +84,41 @@ def main():
     # TODO make this a config variable
     # if bb_trained_winrate >= target_winrate or bb_return >= config.target_bb_return:
     
+    best_bot = max(trained_bots.items(), key=lambda x: x[1]["bb_trained_winrate"])
+    filename = f"bb_bot_{best_bot[1]["bb_trained_winrate"]:.2f}_{best_bot[1]["bb_return"]:.2f}.txt"
+    with open(filename, 'w') as f:
+        f.write(f"# BB Return Bot\n")
+        f.write(f"# BB Winrate vs random bots: {best_bot[1]["bb_trained_winrate"]:.2f}\n")
+        f.write(f"# Average Blind return vs random bots: {best_bot[1]["bb_return"]:.2f}\n")
+        f.write(f"# Num training tables: {config.num_training_tables}\n# Players per table: {config.players_per_table}\n")
+        f.write(f"# Mutation rate: {config.mutation_rate}\n# Mutation Strength: {config.mutation_strength}\n")
+        f.write(f"# Random player % during training: {config.random_player_pct}\n")
+        f.write(f"# Training hand limit: {config.training_hand_limit}\n# Testing hand limit: {config.test_num_hands}\n")
+        f.write(f"# Num Testing tables: {config.test_num_tables}\n")
+        f.write(f"# Num Neural layers: {config.num_neural_layers}\n# Neural Hidden Layer Size: {config.neural_hidden_layer_size}\n")
+        f.write(f"# Num Initial Generations: {config.initial_generations}\n\n")
+        f.write("# weights\n")
+        for i, layer in enumerate(best_bot[1]["bot"].brain.weights):
+            f.write(f"# layer {i}:\n")
+            for row in layer:
+                f.write(' '.join(map(str, row)) + '\n')
+            f.write("\n")
+        f.write("# biases\n")
+        for i, layer in enumerate(best_bot[1]["bot"].brain.biases):
+            f.write(f"# layer {i}:\n")
+            for row in layer:
+                f.write(' '.join(map(str, row)) + '\n')
+            f.write("\n")
+
+
     # TODO add a better data header to the file, with training params included and other stats etc.
-    print(f"Winrate against random bots: {bb_trained_winrate} | Target winrate: {target_winrate}")
-    print(f"Big Blind Return: {bb_return} | Target Big Blind Return: {config.target_bb_return}")
-    filename = f"bb_trained_bot_{bb_trained_winrate:.2f}_{bb_return:.2f}.txt"
-    write_to_file(filename=filename, bot =bb_trained_bot, winrate=bb_trained_winrate, bot_type="winrate")
+    # print(f"Final bot stats:")
+    # print(f"Winrate against random bots: {bb_trained_winrate} | Target winrate: {target_winrate}")
+    # print(f"Average Big Blind Return against random bots: {bb_return} | Target Big Blind Return: {config.target_bb_return}")
+    # filename = f"bb_trained_bot_{bb_trained_winrate:.2f}_{bb_return:.2f}.txt"
+    # write_to_file(filename=filename, bot =bb_trained_bot, winrate=bb_trained_winrate, bot_type="winrate")
+
+    # bb bot with best bb_return
 
     # if chip_trained_winrate > winrate_trained_winrate:
     #     print("Chip trained bot is better")
